@@ -414,26 +414,54 @@ jobs:
         if: ${{ matrix.platform.android-ndk && !matrix.platform.no-cmake }}
         run: |
           find ./ -iname '*.so' | xargs -L1 ./build-scripts/check_elf_alignment.sh
-      - name: 'Upload binary package'
+            - name: 'Upload binary package'
         uses: actions/upload-artifact@v4
-        if: ${{ always() && matrix.platform.artifact != '' && (steps.package.outcome == 'success' || steps.cpactions.outcome == 'success') && (matrix.platform.enable-artifacts || steps.tests.outcome == 'failure') }}
+        if: ${{ always() && matrix.platform.artifact != '' && matrix.platform.enable-artifacts }}
         with:
           if-no-files-found: error
           name: '${{ matrix.platform.artifact }}'
+          # 收集所有可能的构建产物
           path: |
+            # CMake 构建产物
+            build/Release/**/*.dll
+            build/Release/**/*.lib
+            build/Release/**/*.so
+            build/Release/**/*.dylib
+            build/Release/**/*.a
+            build/Debug/**/*.dll
+            build/Debug/**/*.lib
+            build/Debug/**/*.so
+            build/Debug/**/*.dylib
+            build/Debug/**/*.a
+            
+            # CMake 安装目录
+            prefix/**/*
+            
+            # Autotools 安装目录
+            autotools_prefix/**/*
+            
+            # Android 构建产物
+            build/libs/**/*
+            build/obj/**/*
+            
+            # 原有的路径
             build/dist/SDL3*
             build/include*
+      
       - name: 'Upload minidumps'
         uses: actions/upload-artifact@v4
-        if: ${{ always() && steps.tests.outcome == 'failure' && (matrix.platform.platform == 'msvc' || matrix.platform.platform == 'msys2') }}
+        if: ${{ always() && (steps.cmake-tests.outcome == 'failure' || steps.autotools-tests.outcome == 'failure') && (matrix.platform.platform == 'msvc' || matrix.platform.platform == 'msys2') }}
         with:
           if-no-files-found: ignore
           name: '${{ matrix.platform.artifact }}-minidumps'
-          path: build/**/*.dmp
+          path: |
+            build/**/*.dmp
+            build-autotools/**/*.dmp
+      
       - name: "Upload Android test apk's"
         uses: actions/upload-artifact@v4
-        if: ${{ matrix.platform.enable-artifacts && always() && matrix.platform.artifact != '' && steps.apks.outcome == 'success' }}
+        if: ${{ always() && matrix.platform.android-apks != '' && matrix.platform.enable-artifacts }}
         with:
-          if-no-files-found: error
+          if-no-files-found: ignore
           name: '${{ matrix.platform.artifact }}-apks'
           path: build/test/*.apk
