@@ -341,7 +341,6 @@ jobs:
           build-scripts/test-versioning.sh
       - name: 'Upload binary package'
         uses: actions/upload-artifact@v4
-        if: ${{ always() && steps.cmake-tests.outcome == 'failure' }}
         with:
           if-no-files-found: ignore
           name: '${{ matrix.platform.artifact }}-minidumps'
