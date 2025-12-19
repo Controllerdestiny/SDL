@@ -342,20 +342,24 @@ jobs:
       # 修改后的上传步骤
       - name: 'Upload binary package'
         uses: actions/upload-artifact@v4
-        if: ${{ always() && matrix.platform.artifact != '' &&  matrix.platform.enable-artifacts }}
+        if: ${{ always() && matrix.platform.artifact != '' && (steps.package.outcome == 'success' || steps.cpactions.outcome == 'success') && (matrix.platform.enable-artifacts || steps.tests.outcome == 'failure') }}
         with:
           if-no-files-found: error
           name: '${{ matrix.platform.artifact }}'
           path: |
-            prefix/**/*        # CMake 安装目录
-            autotools_prefix/**/*  # Autotools 安装目录
-            build/dist/SDL3*   # 原有的路径
-            build/include*     # 原有的路径
-
-      - name: "Upload Android test apk's"
+            build/dist/SDL3*
+            build/include*
+      - name: 'Upload minidumps'
         uses: actions/upload-artifact@v4
-        if: ${{ always() && matrix.platform.android-apks != '' &&  matrix.platform.enable-artifacts }}
+        if: ${{ always() && steps.tests.outcome == 'failure' && (matrix.platform.platform == 'msvc' || matrix.platform.platform == 'msys2') }}
         with:
           if-no-files-found: ignore
+          name: '${{ matrix.platform.artifact }}-minidumps'
+          path: build/**/*.dmp
+      - name: "Upload Android test apk's"
+        uses: actions/upload-artifact@v4
+        if: ${{ matrix.platform.enable-artifacts && always() && matrix.platform.artifact != '' && steps.apks.outcome == 'success' }}
+        with:
+          if-no-files-found: error
           name: '${{ matrix.platform.artifact }}-apks'
           path: build/test/*.apk
