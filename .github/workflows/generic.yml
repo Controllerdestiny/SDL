@@ -195,17 +195,13 @@ jobs:
             -DCMAKE_INSTALL_LIBDIR=lib \
             -DSDL_CMAKE_DEBUG_POSTFIX="" \
             -DCMAKE_BUILD_TYPE=${{ matrix.platform.cmake-build-type }}
-      - name: "Build test apk's (CMake)"
-        id: apks
-        if: ${{ always() && steps.build.outcome == 'success' && matrix.platform.android-apks != '' }}
+      - name: 'Build (CMake)'
+        id: cmake-build
+        if: ${{ !matrix.platform.no-cmake }}
 #        shell: ${{ matrix.platform.shell }}
         run: |
           ${{ matrix.platform.source-cmd }}
-          cmake --build build --config ${{ matrix.platform.cmake-build-type }} \
-            --target \
-              ${{ matrix.platform.android-apks }} \
-            --verbose \
-            -- ${{ matrix.platform.cmake-build-arguments }}
+          cmake --build build --config ${{ matrix.platform.cmake-build-type }} --verbose -- ${{ matrix.platform.cmake-build-arguments }}
       - name: 'Verify SDL_REVISION'
         if: ${{ !matrix.platform.no-cmake }}
         run: |
