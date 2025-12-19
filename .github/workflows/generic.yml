@@ -195,13 +195,17 @@ jobs:
             -DCMAKE_INSTALL_LIBDIR=lib \
             -DSDL_CMAKE_DEBUG_POSTFIX="" \
             -DCMAKE_BUILD_TYPE=${{ matrix.platform.cmake-build-type }}
-      - name: 'Build (CMake)'
-        id: cmake-build
-        if: ${{ !matrix.platform.no-cmake }}
+      - name: "Build test apk's (CMake)"
+        id: apks
+        if: ${{ always() && steps.build.outcome == 'success' && matrix.platform.android-apks != '' }}
 #        shell: ${{ matrix.platform.shell }}
         run: |
           ${{ matrix.platform.source-cmd }}
-          cmake --build build --config ${{ matrix.platform.cmake-build-type }} --verbose -- ${{ matrix.platform.cmake-build-arguments }}
+          cmake --build build --config ${{ matrix.platform.cmake-build-type }} \
+            --target \
+              ${{ matrix.platform.android-apks }} \
+            --verbose \
+            -- ${{ matrix.platform.cmake-build-arguments }}
       - name: 'Verify SDL_REVISION'
         if: ${{ !matrix.platform.no-cmake }}
         run: |
@@ -358,7 +362,7 @@ jobs:
           path: build/**/*.dmp
       - name: "Upload Android test apk's"
         uses: actions/upload-artifact@v4
-        if: ${{ matrix.platform.enable-artifacts && always() && matrix.platform.artifact != '' && steps.apks.outcome == 'success' }}
+        if: ${{ matrix.platform.enable-artifacts && always() && matrix.platform.artifact != '' && steps.apk.outcome == 'success' }}
         with:
           if-no-files-found: error
           name: '${{ matrix.platform.artifact }}-apks'
