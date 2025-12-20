@@ -1,8 +1,6 @@
 name: Build Android APKs Only
 
-on:
-  workflow_dispatch:
-  push:
+on: [push, pull_request]
 
 jobs:
   build-android-apks:
