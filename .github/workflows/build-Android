@@ -1,0 +1,122 @@
+name: Build Android APKs Only
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build-android-apks:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 可以选择多个 Android ABI
+        abi: [arm64-v8a, armeabi-v7a, x86_64, x86]
+        include:
+          - abi: arm64-v8a
+            arch: aarch64
+            platform: 23
+          - abi: armeabi-v7a
+            arch: armv7a
+            platform: 19
+          - abi: x86_64
+            arch: x86_64
+            platform: 21
+          - abi: x86
+            arch: i686
+            platform: 19
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r21e
+          local-cache: true
+          
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            pkg-config \
+            cmake \
+            git \
+            wget
+          
+      - name: Configure CMake for Android
+        run: |
+          mkdir -p build-android
+          cd build-android
+          
+          # 设置 Android 环境变量
+          export ANDROID_NDK_HOME="${{ steps.setup-ndk.outputs.ndk-path }}"
+          
+          cmake .. \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=${{ matrix.abi }} \
+            -DANDROID_PLATFORM=android-${{ matrix.platform }} \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DANDROID_STL=c++_shared \
+            -DSDL_SHARED=ON \
+            -DSDL_STATIC=OFF \
+            -DSDL_TEST=ON \
+            -DSDL_VENDOR_INFO="GitHub Action Build" \
+            -GNinja
+          
+      - name: Build SDL library
+        run: |
+          cd build-android
+          cmake --build . --config Release --target SDL2
+          
+      - name: Build Android test APKs
+        id: build-apks
+        run: |
+          cd build-android
+          
+          # 构建所有的 Android 测试 APK
+          for target in \
+            testaudiorecording-apk \
+            testautomation-apk \
+            testcontroller-apk \
+            testmultiaudio-apk \
+            testsprite-apk; do
+            echo "Building $target..."
+            cmake --build . --config Release --target $target || true
+          done
+          
+          # 检查 APK 文件
+          find . -name "*.apk" -type f | head -10
+          
+          # 统计 APK 数量
+          APK_COUNT=$(find . -name "*.apk" -type f | wc -l)
+          echo "Found $APK_COUNT APK files"
+          echo "apk-count=$APK_COUNT" >> $GITHUB_OUTPUT
+          
+      - name: Collect APK files
+        if: steps.build-apks.outputs.apk-count > 0
+        run: |
+          mkdir -p apk-artifacts/${{ matrix.abi }}
+          find build-android -name "*.apk" -type f -exec cp {} apk-artifacts/${{ matrix.abi }}/ \;
+          ls -la apk-artifacts/${{ matrix.abi }}/
+          
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apks-${{ matrix.abi }}
+          path: apk-artifacts/${{ matrix.abi }}/
+          if-no-files-found: warn
+          retention-days: 7
+          
+      - name: Upload SDL shared library
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdl2-android-${{ matrix.abi }}
+          path: |
+            build-android/libSDL2.so
+            build-android/lib*.so
+            build-android/*.a
+          if-no-files-found: warn
+          retention-days: 7
